@@ -365,15 +365,15 @@ static Class NSManagedObjectClass;
     struct objc_method_description methodDescription = protocol_getMethodDescription(protocol, selector, YES, NO);
     
 #define setupSafeKeyAccessForClass(klassName) do {\
-Class klass = NSClassFromString(@#klassName);\
-if (klass) {\
-Class metaKlass = object_getClass(klass);\
-safeMustacheKeysFor ## klassName = [[self allPublicKeysForClass:klass] retain];\
-[safeMustacheKeysFor ## klassName unionSet:safeMustacheNSObjectKeys];\
-[safeMustacheKeysFor ## klassName minusSet:unsafeMustacheNSObjectKeys];\
-class_addMethod(metaKlass, selector, (IMP)safeMustacheKeys_ ## klassName, methodDescription.types);\
-class_addProtocol(klass, protocol);\
-}\
+    Class klass = NSClassFromString(@#klassName);\
+    if (klass) {\
+        Class metaKlass = object_getClass(klass);\
+        safeMustacheKeysFor ## klassName = [[self allPublicKeysForClass:klass] retain];\
+        [safeMustacheKeysFor ## klassName unionSet:safeMustacheNSObjectKeys];\
+        [safeMustacheKeysFor ## klassName minusSet:unsafeMustacheNSObjectKeys];\
+        class_addMethod(metaKlass, selector, (IMP)safeMustacheKeys_ ## klassName, methodDescription.types);\
+        class_addProtocol(klass, protocol);\
+    }\
 } while(0);
     
     setupSafeKeyAccessForClass(NSArray);
@@ -383,15 +383,11 @@ class_addProtocol(klass, protocol);\
     setupSafeKeyAccessForClass(NSDateComponents);
     setupSafeKeyAccessForClass(NSDecimalNumber);
     setupSafeKeyAccessForClass(NSError);
-    setupSafeKeyAccessForClass(NSHashTable);
     setupSafeKeyAccessForClass(NSIndexPath);
     setupSafeKeyAccessForClass(NSIndexSet);
-    setupSafeKeyAccessForClass(NSMapTable);
     setupSafeKeyAccessForClass(NSNotification);
-    setupSafeKeyAccessForClass(NSException);
     setupSafeKeyAccessForClass(NSNumber);
     setupSafeKeyAccessForClass(NSOrderedSet);
-    setupSafeKeyAccessForClass(NSPointerArray);
     setupSafeKeyAccessForClass(NSSet);
     setupSafeKeyAccessForClass(NSString);
     setupSafeKeyAccessForClass(NSURL);
