@@ -3,16 +3,23 @@ GRMustache Release Notes
 
 You can compare the performances of GRMustache versions at https://github.com/groue/GRMustacheBenchmark.
 
+## v7.3.0
+
+This version fixes the backward compatibility issues introduced by GRMustache v7.2.0.
+
+- Fix for issue [#82](https://github.com/groue/GRMustache/issues/82): the `zip` filter is no longer part of the standard library. See [issue #80](https://github.com/groue/GRMustache/issues/80) for some sample code for this discontinued filter.
+- Fix for issue [#83](https://github.com/groue/GRMustache/issues/83): true boolean values no longer enter the context stack when they trigger the rendering of a section.
+- GRMustache used to log parsing and rendering errors whenever your code would not explicitly pass an error pointer. This is no longer the case.
+
+
 ## v7.2.0
-
-**GRMustache 7.2.0 has several backward compatibility issues ([#83](https://github.com/groue/GRMustache/issues/83), [#82](https://github.com/groue/GRMustache/issues/82)).**
-
-**IT IS RECOMMENDED THAT YOU KEEP USING VERSION 7.1.0**.
 
 #### New Standard Library Goodness
 
 - The `each` filter lets templates access array indexes, iterate over key/value dictionary pairs, and more. [Documentation](Guides/standard_library.md#each)
 - The `zip` filter can iterate several collections all at once. [Documentation](Guides/standard_library.md#zip)
+
+**NB: The `zip` filter has introduced a severe backward compatibility issue. It has been removed from the version v7.3.0.**.
 
 Just like all other tools of the [standard library](Guides/standard_library.md), both `each` and `zip` filters are built with public APIs. So you don't have to write them yourselves. But you can still customize them.
 
@@ -23,8 +30,6 @@ Just like all other tools of the [standard library](Guides/standard_library.md),
 Custom rendering of a collection can now be done by writing a filter which returns another collection.
 
 Filters written this way can nicely chain, as in `{{# each(zip(array1, array2)) }}...{{/ }}`.
-
-Check the [`each` filter source code](src/classes/Services/StandardLibrary/GRMustacheEachFilter.m) for an example.
 
 
 ## v7.1.0
