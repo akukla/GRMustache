@@ -37,18 +37,20 @@
 #import "GRMustacheScopedExpression_private.h"
 #import "GRMustacheImplicitIteratorExpression_private.h"
 #import "GRMustacheToken_private.h"
-#import "GRMustacheTemplateGenerator_private.h"
+#import "GRMustacheExpressionGenerator_private.h"
 #import "GRMustacheExpressionParser_private.h"
 
 
 NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
+
+GRMustacheWarnings const GRMustacheWarningAll = GRMustacheWarningGRMustacheDeprecationSlashInIdentifier|GRMustacheWarningGRMustacheUnsupportedPragma|GRMustacheWarningMustacheExtensionPragma|GRMustacheWarningMustacheExtensionFilter|GRMustacheWarningMustacheExtensionEmptyClosingTag|GRMustacheWarningMustacheExtensionImplicitClosingTag|GRMustacheWarningMustacheExtensionAnchoredExpression|GRMustacheWarningMustacheExtensionAbsolutePartialPath|GRMustacheWarningMustacheExtensionTemplateInheritance|GRMustacheWarningMustacheExtensionStandardLibrary;
 
 @interface GRMustacheValidator()<GRMustacheTemplateASTVisitor, GRMustacheExpressionVisitor, GRMustacheTemplateParserDelegate>
 @end
 
 @implementation GRMustacheValidator
 
-- (NSArray *)errorsForTemplateID:(id)templateID templateRepository:(GRMustacheTemplateRepository *)templateRepository
+- (NSArray *)errorsAndWarningsForTemplateID:(id)templateID templateRepository:(GRMustacheTemplateRepository *)templateRepository
 {
     NSError *error;
     NSString *templateString = [templateRepository.dataSource templateRepository:templateRepository templateStringForTemplateID:templateID error:&error];
@@ -71,7 +73,7 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
         return @[error];
     }
     
-    _templateGenerator = [GRMustacheTemplateGenerator templateGeneratorWithTemplateRepository:templateRepository];
+    _expressionGenerator = [[[GRMustacheExpressionGenerator alloc] init] autorelease];
     [self visitTemplateAST:templateAST error:NULL];
     return [_errors autorelease];
 }
@@ -138,8 +140,7 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
 
 - (BOOL)visitFilteredExpression:(GRMustacheFilteredExpression *)expression error:(NSError **)error
 {
-    [self addWarningWithCode:GRMustacheWarningExtensionFilter
-                 description:[NSString stringWithFormat:@"Filter expression at line %lu", (unsigned long)expression.token.line]];
+    [self addWarningWithCode:GRMustacheWarningMustacheExtensionFilter token:expression.token];
     [expression.filterExpression acceptVisitor:self error:NULL];
     [expression.argumentExpression acceptVisitor:self error:NULL];
     return YES;
@@ -160,8 +161,7 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
 {
     GRMustacheExpression *baseExpression = expression.baseExpression;
     if ([baseExpression isKindOfClass:[GRMustacheImplicitIteratorExpression class]]) {
-        [self addWarningWithCode:GRMustacheWarningExtensionAnchoredExpression
-                     description:[NSString stringWithFormat:@"Anchored expression at line %lu", (unsigned long)expression.token.line]];
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionAnchoredExpression token:expression.token];
     }
     [self validateExpressionIdentifier:expression.identifier token:expression.token];
     return YES;
@@ -186,7 +186,7 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
             
         case GRMustacheTokenTypeSectionOpening:
         case GRMustacheTokenTypeInvertedSectionOpening:
-            // TODO: GRMustacheWarningExtensionImplicitClosingTag
+            // TODO: GRMustacheWarningMustacheExtensionImplicitClosingTag
             break;
             
         case GRMustacheTokenTypeClosing: {
@@ -196,8 +196,7 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
             GRMustacheExpression *expression = [expressionParser parseExpression:token.tagInnerContent empty:&empty error:&error];
             if (!expression) {
                 if (empty) {
-                    [self addWarningWithCode:GRMustacheWarningExtensionEmptyClosingTag
-                                 description:[NSString stringWithFormat:@"Empty closing tag at line %lu", (unsigned long)token.line]];
+                    [self addWarningWithCode:GRMustacheWarningMustacheExtensionEmptyClosingTag token:token];
                 } else {
                     [_errors addObject:error];
                 }
@@ -210,20 +209,24 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
             if (!partialName) {
                 [_errors addObject:error];
             } else if ([partialName characterAtIndex:0] == '/') {
-                [self addWarningWithCode:GRMustacheWarningExtensionAbsolutePartialPath
-                             description:[NSString stringWithFormat:@"Absolute path to partial at line %lu", (unsigned long)token.line]];
+                [self addWarningWithCode:GRMustacheWarningMustacheExtensionAbsolutePartialPath token:token];
             }
         } break;
             
-        case GRMustacheTokenTypePragma:
-            [self addWarningWithCode:GRMustacheWarningExtensionPragma
-                         description:[NSString stringWithFormat:@"Pragma tag at line %lu", (unsigned long)token.line]];
-            // TODO: GRMustacheWarningUnsupportedPragma
-            break;
+        case GRMustacheTokenTypePragma: {
+            [self addWarningWithCode:GRMustacheWarningMustacheExtensionPragma token:token];
+            
+            NSString *pragma = [parser parsePragma:token.tagInnerContent];
+            if (![pragma isEqualToString:GRMustacheCompilerPragmaContentTypeHTML] &&
+                ![pragma isEqualToString:GRMustacheCompilerPragmaContentTypeText])
+            {
+                [self addWarningWithCode:GRMustacheWarningGRMustacheUnsupportedPragma token:token];
+            }
+        } break;
             
         case GRMustacheTokenTypeInheritablePartial:
         case GRMustacheTokenTypeInheritableSectionOpening:
-            // TODO: GRMustacheWarningExtensionTemplateInheritance
+            [self addWarningWithCode:GRMustacheWarningMustacheExtensionTemplateInheritance token:token];
             break;
     }
     
@@ -241,27 +244,94 @@ NSString * const GRMustacheWarningDomain = @"GRMustacheWarningDomain";
 
 - (void)validateExpression:(GRMustacheExpression *)expression
 {
-    NSString *expressionString = [_templateGenerator stringWithExpression:expression];
-    if ([expressionString isEqualToString:@"localize"]) {
-        [self addWarningWithCode:GRMustacheWarningExtensionStandardLibrary
-                     description:[NSString stringWithFormat:@"`localize` at line %lu", (unsigned long)expression.token.line]];
+    NSString *expressionString = [_expressionGenerator stringWithExpression:expression];
+    
+    if ([expressionString isEqualToString:@"capitalized"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
     }
+    
+    if ([expressionString isEqualToString:@"lowercase"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"uppercase"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"isBlank"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"isEmpty"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"localize"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"each"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"HTML.escape"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
+    if ([expressionString isEqualToString:@"javascript.escape"]) {
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
+    }
+    
     if ([expressionString isEqualToString:@"URL.escape"]) {
-        [self addWarningWithCode:GRMustacheWarningExtensionStandardLibrary
-                     description:[NSString stringWithFormat:@"`URL.escape` at line %lu", (unsigned long)expression.token.line]];
+        [self addWarningWithCode:GRMustacheWarningMustacheExtensionStandardLibrary token:expression.token];
     }
 }
 
 - (void)validateExpressionIdentifier:(NSString *)identifier token:(GRMustacheToken *)token
 {
     if ([identifier rangeOfString:@"/"].location != NSNotFound) {
-        [self addWarningWithCode:GRMustacheWarningDeprecatedSlashInIdentifier
-                     description:[NSString stringWithFormat:@"Slash in identifier at line %lu", (unsigned long)token.line]];
+        [self addWarningWithCode:GRMustacheWarningGRMustacheDeprecationSlashInIdentifier token:token];
     }
 }
 
-- (void)addWarningWithCode:(GRMustacheWarning)warning description:(NSString *)description
+- (void)addWarningWithCode:(GRMustacheWarning)warning token:(GRMustacheToken *)token
 {
+    NSString *warningText = nil;
+    switch (warning) {
+        case GRMustacheWarningGRMustacheDeprecationSlashInIdentifier:
+            warningText = @"Slash in identifier is deprecated in GRMustache";
+            break;
+        case GRMustacheWarningGRMustacheUnsupportedPragma:
+            warningText = @"Pragma tag that is unsupported by GRMustache";
+            break;
+        case GRMustacheWarningMustacheExtensionPragma:
+            warningText = @"Extension: pragma tag";
+            break;
+        case GRMustacheWarningMustacheExtensionFilter:
+            warningText = @"Extension: filter expression";
+            break;
+        case GRMustacheWarningMustacheExtensionEmptyClosingTag:
+            warningText = @"Extension: empty closing tag";
+            break;
+        case GRMustacheWarningMustacheExtensionImplicitClosingTag:
+            warningText = @"Extension: implicit closing tag";
+            break;
+        case GRMustacheWarningMustacheExtensionAnchoredExpression:
+            warningText = @"Extension: dot-prefixed expression";
+            break;
+        case GRMustacheWarningMustacheExtensionAbsolutePartialPath:
+            warningText = @"Extension: absolute path to partial";
+            break;
+        case GRMustacheWarningMustacheExtensionTemplateInheritance:
+            warningText = @"Extension: template inheritance";
+            break;
+        case GRMustacheWarningMustacheExtensionStandardLibrary:
+            warningText = @"Extension: GRMustache standard library";
+            break;
+            break;
+    }
+    
+    NSString *description = [NSString stringWithFormat:@"%@: %@ at line %lu", warningText, token.templateSubstring, (unsigned long)token.line];
     NSError *error = [NSError errorWithDomain:GRMustacheWarningDomain
                                          code:warning
                                      userInfo:@{ NSLocalizedDescriptionKey: description}];

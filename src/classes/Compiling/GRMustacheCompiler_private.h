@@ -28,6 +28,9 @@
 @class GRMustacheTemplateRepository;
 @class GRMustacheTemplateAST;
 
+extern NSString * const GRMustacheCompilerPragmaContentTypeText;
+extern NSString * const GRMustacheCompilerPragmaContentTypeHTML;
+
 /**
  * The GRMustacheCompiler interprets GRMustacheTokens provided by a
  * GRMustacheTemplateParser, and outputs a syntax tree of objects conforming to

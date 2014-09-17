@@ -25,23 +25,24 @@
 
 @class GRMustacheTemplateRepository;
 @class GRMustacheTag;
-@class GRMustacheTemplateGenerator;
+@class GRMustacheExpressionGenerator;
 @class GRMustacheCompiler;
 
 typedef NS_OPTIONS(NSUInteger, GRMustacheWarning) {
-    GRMustacheWarningDeprecatedSlashInIdentifier  = 1 << 0,     // {{a/b}}
-    GRMustacheWarningUnsupportedPragma            = 1 << 1,     // {{% ... }} unknown to GRMustache
-    GRMustacheWarningExtensionPragma              = 1 << 2,     // {{% ... }}
-    GRMustacheWarningExtensionFilter              = 1 << 3,     // {{f(x)}}
-    GRMustacheWarningExtensionEmptyClosingTag     = 1 << 4,     // {{#a}}...{{/}}
-    GRMustacheWarningExtensionImplicitClosingTag  = 1 << 5,     // {{#a}}...{{^a}}...{{/a}}
-    GRMustacheWarningExtensionAnchoredExpression  = 1 << 6,     // {{.a}}
-    GRMustacheWarningExtensionAbsolutePartialPath = 1 << 7,     // {{>/a}}
-    GRMustacheWarningExtensionTemplateInheritance = 1 << 8,     // {{<layout}}...{{/layout}} {{$overridable}}...{{/overridable}}
-    GRMustacheWarningExtensionStandardLibrary     = 1 << 9,     // localize, each, isBlank, ...
-    
-    GRMustacheWarningAll = GRMustacheWarningDeprecatedSlashInIdentifier|GRMustacheWarningUnsupportedPragma|GRMustacheWarningExtensionPragma|GRMustacheWarningExtensionFilter|GRMustacheWarningExtensionEmptyClosingTag|GRMustacheWarningExtensionImplicitClosingTag|GRMustacheWarningExtensionAnchoredExpression|GRMustacheWarningExtensionAbsolutePartialPath|GRMustacheWarningExtensionTemplateInheritance|GRMustacheWarningExtensionStandardLibrary,
+    GRMustacheWarningGRMustacheDeprecationSlashInIdentifier  = 1 << 0,     // {{a/b}}
+    GRMustacheWarningGRMustacheUnsupportedPragma             = 1 << 1,     // {{% ... }} unknown to GRMustache
+    GRMustacheWarningMustacheExtensionPragma                 = 1 << 2,     // {{% ... }}
+    GRMustacheWarningMustacheExtensionFilter                 = 1 << 3,     // {{f(x)}}
+    GRMustacheWarningMustacheExtensionEmptyClosingTag        = 1 << 4,     // {{#a}}...{{/}}
+    GRMustacheWarningMustacheExtensionImplicitClosingTag     = 1 << 5,     // {{#a}}...{{^a}}...{{/a}}
+    GRMustacheWarningMustacheExtensionAnchoredExpression     = 1 << 6,     // {{.a}}
+    GRMustacheWarningMustacheExtensionAbsolutePartialPath    = 1 << 7,     // {{>/a}}
+    GRMustacheWarningMustacheExtensionTemplateInheritance    = 1 << 8,     // {{<layout}}...{{/layout}} {{$overridable}}...{{/overridable}}
+    GRMustacheWarningMustacheExtensionStandardLibrary        = 1 << 9,     // localize, each, isBlank, ...
 };
+
+typedef NSUInteger GRMustacheWarnings;
+extern GRMustacheWarnings const GRMustacheWarningAll;
 
 extern NSString * const GRMustacheWarningDomain;
 
@@ -49,10 +50,10 @@ extern NSString * const GRMustacheWarningDomain;
 @private
     NSMutableArray *_errors;
     GRMustacheTag *_tag;
-    GRMustacheTemplateGenerator *_templateGenerator;
+    GRMustacheExpressionGenerator *_expressionGenerator;
     GRMustacheCompiler *_compiler;
 }
 
-- (NSArray *)errorsForTemplateID:(id)templateID templateRepository:(GRMustacheTemplateRepository *)templateRepository GRMUSTACHE_API_PUBLIC;
+- (NSArray *)errorsAndWarningsForTemplateID:(id)templateID templateRepository:(GRMustacheTemplateRepository *)templateRepository GRMUSTACHE_API_PUBLIC;
 
 @end

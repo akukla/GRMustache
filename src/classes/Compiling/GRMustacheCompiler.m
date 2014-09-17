@@ -34,6 +34,9 @@
 #import "GRMustacheTemplateAST_private.h"
 #import "GRMustacheError.h"
 
+NSString * const GRMustacheCompilerPragmaContentTypeText = @"CONTENT_TYPE:TEXT";
+NSString * const GRMustacheCompilerPragmaContentTypeHTML = @"CONTENT_TYPE:HTML";
+
 @interface GRMustacheCompiler()
 
 /**
@@ -189,14 +192,14 @@
             
         case GRMustacheTokenTypePragma: {
             NSString *pragma = [parser parsePragma:token.tagInnerContent];
-            if ([pragma isEqualToString:@"CONTENT_TYPE:TEXT"]) {
+            if ([pragma isEqualToString:GRMustacheCompilerPragmaContentTypeText]) {
                 if (_contentTypeLocked) {
                     [self failWithFatalError:[self parseErrorAtToken:token description:[NSString stringWithFormat:@"CONTENT_TYPE:TEXT pragma tag must prepend any Mustache variable, section, or partial tag."]]];
                     return NO;
                 }
                 _contentType = GRMustacheContentTypeText;
             }
-            if ([pragma isEqualToString:@"CONTENT_TYPE:HTML"]) {
+            if ([pragma isEqualToString:GRMustacheCompilerPragmaContentTypeHTML]) {
                 if (_contentTypeLocked) {
                     [self failWithFatalError:[self parseErrorAtToken:token description:[NSString stringWithFormat:@"CONTENT_TYPE:HTML pragma tag must prepend any Mustache variable, section, or partial tag."]]];
                     return NO;
