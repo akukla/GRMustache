@@ -120,4 +120,95 @@
     }
 }
 
+- (void)testTemplateRepositoryWithBundleLocalization
+{
+    // Check that our custom bundles works as expected:
+    // - NSLocalizedString
+    // - resources files
+    // - localized resource files
+    // - resources directories
+    // - localized resources directories
+    NSDictionary *resources = @{ @"nonLocalized.txt": @"nonLocalized",
+                                 @"nonLocalizedResources/a.txt": @"nonLocalized a",
+                                 @"en.lproj/localized.txt": @"localized",
+                                 @"en.lproj/localizedResources/a.txt": @"localized a",
+                                 @"en.lproj/Localizable.strings": @"\"key\"=\"value\";" };
+    [self runTestsWithBundleResources:resources usingBlock:^(NSBundle *bundle) {
+        NSString *localizedString = [bundle localizedStringForKey:@"key" value:@"" table:nil];
+        XCTAssertEqualObjects(localizedString, @"value");
+        
+        NSString *nonLocalizedResourcePath = [bundle pathForResource:@"nonLocalized" ofType:@"txt"];
+        NSString *nonLocalizedResourceContent = [NSString stringWithContentsOfFile:nonLocalizedResourcePath encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(nonLocalizedResourceContent, @"nonLocalized");
+        
+        NSURL *nonLocalizedResourceURL = [bundle URLForResource:@"nonLocalized" withExtension:@"txt"];
+        nonLocalizedResourceContent = [NSString stringWithContentsOfURL:nonLocalizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(nonLocalizedResourceContent, @"nonLocalized");
+
+        nonLocalizedResourceURL = [[bundle URLForResource:@"nonLocalizedResources" withExtension:nil] URLByAppendingPathComponent:@"a.txt"];
+        nonLocalizedResourceContent = [NSString stringWithContentsOfURL:nonLocalizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(nonLocalizedResourceContent, @"nonLocalized a");
+
+        nonLocalizedResourceURL = [bundle URLForResource:@"a" withExtension:@"txt" subdirectory:@"nonLocalizedResources"];
+        nonLocalizedResourceContent = [NSString stringWithContentsOfURL:nonLocalizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(nonLocalizedResourceContent, @"nonLocalized a");
+        
+        NSURL *localizedResourceURL = [bundle URLForResource:@"localized" withExtension:@"txt"];
+        NSString *localizedResourceContent = [NSString stringWithContentsOfURL:localizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(localizedResourceContent, @"localized");
+        
+        localizedResourceURL = [[bundle URLForResource:@"localizedResources" withExtension:nil] URLByAppendingPathComponent:@"a.txt"];
+        localizedResourceContent = [NSString stringWithContentsOfURL:localizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(localizedResourceContent, @"localized a");
+        
+        localizedResourceURL = [bundle URLForResource:@"a" withExtension:@"txt" subdirectory:@"localizedResources"];
+        localizedResourceContent = [NSString stringWithContentsOfURL:localizedResourceURL encoding:NSUTF8StringEncoding error:NULL];
+        XCTAssertEqualObjects(localizedResourceContent, @"localized a");
+    }];
+    
+    
+    // Regression test for https://github.com/groue/GRMustache/issues/87
+    
+    resources = @{ @"en.lproj/Main.mustache": @"{{> Footer }}",
+                   @"en.lproj/Footer.mustache": @"Footer" };
+    [self runTestsWithBundleResources:resources usingBlock:^(NSBundle *bundle) {
+        GRMustacheTemplate *template = [GRMustacheTemplate templateFromResource:@"Main" bundle:bundle error:NULL];
+        NSString *rendering = [template renderObject:nil error:NULL];
+        XCTAssertEqualObjects(rendering, @"Footer");
+    }];
+    
+    
+    // Non-localized siblings
+    
+    resources = @{ @"a.mustache": @"{{>b}}",
+                   @"b.mustache": @"b" };
+    [self runTestsWithBundleResources:resources usingBlock:^(NSBundle *bundle) {
+        GRMustacheTemplate *template = [GRMustacheTemplate templateFromResource:@"a" bundle:bundle error:NULL];
+        NSString *rendering = [template renderObject:nil error:NULL];
+        XCTAssertEqualObjects(rendering, @"b");
+    }];
+}
+
+- (void)runTestsWithBundleResources:(NSDictionary *)resources usingBlock:(void(^)(NSBundle *bundle))block
+{
+    static NSUInteger count = 0;    // counter makes sure we do never generate two bundles at the same path, and suffer from NSBundle cache.
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *bundlePath = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"GRMustacheTest_%lu", (unsigned long)count++]];
+    [fm removeItemAtPath:bundlePath error:nil];
+    
+    for (NSString *name in resources) {
+        NSString *string = [resources objectForKey:name];
+        NSString *path = [bundlePath stringByAppendingPathComponent:name];
+        [fm createDirectoryAtPath:[path stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
+        [fm createFileAtPath:path contents:[string dataUsingEncoding:NSUTF8StringEncoding] attributes:nil];
+    }
+    
+    NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+    block(bundle);
+    
+    // clean up
+    
+    [fm removeItemAtPath:bundlePath error:NULL];
+}
+
 @end
